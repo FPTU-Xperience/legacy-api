@@ -3,7 +3,7 @@ bin/
 obj/
 out/
 
-# IDE
+# IDE & Editor
 .vs/
 .vscode/
 .idea/
@@ -22,15 +22,24 @@ Thumbs.db
 packages/
 *.nupkg
 
-# User secrets
+# User secrets & Environment
 appsettings.*.local.json
 secrets.json
+.env
+.env.*
+!.env.example
+
+# Storage & Uploads (Local files)
+report-uploads/
+report-previews/
+report-attachments/
+exports/
 
 # Test results
 TestResults/
 *.trx
 
-# Backend-specific ignores
+# Frontend & Dependencies
 **/Frontend/
 **/frontend/
 node_modules/
