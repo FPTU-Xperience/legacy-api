@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+// Different namespace to avoid conflict with KpiGrpcService generated types
+option csharp_namespace = "KpiGrpcService.Protos.Client";
+
+package kpi;
+
+import "google/protobuf/timestamp.proto";
+
+// Client-side service definition for KPI calculation.
+service KpiService {
+  rpc CalculateClubKpi (KpiClubRequest) returns (KpiClubResponse);
+}
+
+message KpiClubRequest {
+  int32 club_id = 1;
+  string club_name = 2;
+  string period = 3;
+  int32 approved_reports = 4;
+  int32 activity_count = 5;
+  int32 participant_count = 6;
+  int32 rejected_reports = 7;
+  int32 overdue_reports = 8;
+  string correlation_id = 9;
+}
+
+message KpiClubResponse {
+  int32 club_id = 1;
+  string club_name = 2;
+  double total_score = 3;
+  string rating = 4;
+  int32 approved_reports = 5;
+  int32 activity_count = 6;
+  int32 participant_count = 7;
+  google.protobuf.Timestamp calculated_at_utc = 8;
+  string calculation_version = 9;
+}

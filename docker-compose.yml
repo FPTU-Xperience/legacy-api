@@ -1,0 +1,348 @@
+services:
+  # ============================================================================
+  # 1. Infrastructure: SQL Server 2022
+  # ============================================================================
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: clubreporthub-sqlserver
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SQL_PASSWORD:-ClubReportHub!2026}"
+      MSSQL_PID: "Developer"
+      MSSQL_MEMORY_LIMIT_MB: "1536"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    deploy:
+      resources:
+        limits:
+          memory: 1800M
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" 2>/dev/null || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q \"SELECT 1\" 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 25s
+    networks:
+      - internal-net
+
+  # ============================================================================
+  # 2. Infrastructure: Redis Streams Message Broker
+  # ============================================================================
+  redis:
+    image: redis:7.2-alpine
+    container_name: clubreporthub-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 128mb --maxmemory-policy noeviction
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - internal-net
+
+  # ============================================================================
+  # 3. KpiGrpcService (gRPC Service)
+  # ============================================================================
+  kpi-grpc-service:
+    build:
+      context: .
+      dockerfile: src/Services/KpiGrpcService/Dockerfile
+    container_name: clubreporthub-kpi-grpc
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_gcServer: "0"
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+    networks:
+      - internal-net
+
+  # ============================================================================
+  # 4. AuthService
+  # ============================================================================
+  auth-service:
+    build:
+      context: .
+      dockerfile: src/Services/AuthService/Dockerfile
+    container_name: clubreporthub-auth
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_gcServer: "0"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=ClubReportHub_Auth;User Id=sa;Password=${SQL_PASSWORD:-ClubReportHub!2026};TrustServerCertificate=True;"
+      Jwt__Issuer: "ClubReportHub"
+      Jwt__Audience: "ClubReportHub.Client"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-replace-with-a-random-secret-key-at-least-32-characters}"
+      Jwt__ExpirationMinutes: "120"
+      SeedPasswords__Admin: "${ADMIN_SEED_PASSWORD:-Admin@2026!}"
+      SeedPasswords__SystemAdmin: "${SYSTEM_ADMIN_SEED_PASSWORD:-SystemAdmin@2026!}"
+      SeedPasswords__Manager: "${MANAGER_SEED_PASSWORD:-Manager@2026!}"
+      SeedPasswords__StudentAffairs: "${STUDENT_AFFAIRS_SEED_PASSWORD:-StudentAffairs@2026!}"
+      SeedPasswords__Treasurer: "${TREASURER_SEED_PASSWORD:-Treasurer@2026!}"
+      SeedPasswords__Student: "${STUDENT_SEED_PASSWORD:-Student@2026!}"
+      SeedPasswords__ResetExistingUsers: "${RESET_SEED_PASSWORDS:-true}"
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+    networks:
+      - internal-net
+
+  # ============================================================================
+  # 5. ClubService
+  # ============================================================================
+  club-service:
+    build:
+      context: .
+      dockerfile: src/Services/ClubService/Dockerfile
+    container_name: clubreporthub-club
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_gcServer: "0"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=ClubReportHub_Club;User Id=sa;Password=${SQL_PASSWORD:-ClubReportHub!2026};TrustServerCertificate=True;"
+      Jwt__Issuer: "ClubReportHub"
+      Jwt__Audience: "ClubReportHub.Client"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-replace-with-a-random-secret-key-at-least-32-characters}"
+      Redis__ConnectionString: "redis:6379"
+      Redis__StreamName: "${REDIS_STREAM_NAME:-clubreporthub-events}"
+      Services__ActivityService__BaseUrl: "http://activity-service:8080/"
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+    networks:
+      - internal-net
+
+  # ============================================================================
+  # 6. ActivityService
+  # ============================================================================
+  activity-service:
+    build:
+      context: .
+      dockerfile: src/Services/ActivityService/Dockerfile
+    container_name: clubreporthub-activity
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_gcServer: "0"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=ClubReportHub_Activity;User Id=sa;Password=${SQL_PASSWORD:-ClubReportHub!2026};TrustServerCertificate=True;"
+      Jwt__Issuer: "ClubReportHub"
+      Jwt__Audience: "ClubReportHub.Client"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-replace-with-a-random-secret-key-at-least-32-characters}"
+      Redis__ConnectionString: "redis:6379"
+      Redis__StreamName: "${REDIS_STREAM_NAME:-clubreporthub-events}"
+      Services__ClubService__BaseUrl: "http://club-service:8080/"
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+    networks:
+      - internal-net
+
+  # ============================================================================
+  # 7. ReportService
+  # ============================================================================
+  report-service:
+    build:
+      context: .
+      dockerfile: src/Services/ReportService/Dockerfile
+    container_name: clubreporthub-report
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kpi-grpc-service:
+        condition: service_started
+    volumes:
+      - report_attachments:/app/attachments
+      - report_uploads:/app/report-uploads
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_gcServer: "0"
+      DOTNET_SYSTEM_NET_HTTP_SOCKETSHTTPHANDLER_HTTP2UNENCRYPTEDSUPPORT: "1"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=ClubReportHub_Report;User Id=sa;Password=${SQL_PASSWORD:-ClubReportHub!2026};TrustServerCertificate=True;"
+      Jwt__Issuer: "ClubReportHub"
+      Jwt__Audience: "ClubReportHub.Client"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-replace-with-a-random-secret-key-at-least-32-characters}"
+      Redis__ConnectionString: "redis:6379"
+      Redis__StreamName: "${REDIS_STREAM_NAME:-clubreporthub-events}"
+      Services__ClubService__BaseUrl: "http://club-service:8080/"
+      Services__KpiGrpcService__BaseUrl: "http://kpi-grpc-service:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    networks:
+      - internal-net
+
+  # ============================================================================
+  # 8. FinanceService
+  # ============================================================================
+  finance-service:
+    build:
+      context: .
+      dockerfile: src/Services/FinanceService/Dockerfile
+    container_name: clubreporthub-finance
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_gcServer: "0"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=ClubReportHub_Finance;User Id=sa;Password=${SQL_PASSWORD:-ClubReportHub!2026};TrustServerCertificate=True;"
+      Jwt__Issuer: "ClubReportHub"
+      Jwt__Audience: "ClubReportHub.Client"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-replace-with-a-random-secret-key-at-least-32-characters}"
+      Redis__ConnectionString: "redis:6379"
+      Redis__StreamName: "${REDIS_STREAM_NAME:-clubreporthub-events}"
+      Services__ClubService__BaseUrl: "http://club-service:8080/"
+      Services__ActivityService__BaseUrl: "http://activity-service:8080/"
+      Services__ReportService__BaseUrl: "http://report-service:8080/"
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+    networks:
+      - internal-net
+
+  # ============================================================================
+  # 9. NotificationService
+  # ============================================================================
+  notification-service:
+    build:
+      context: .
+      dockerfile: src/Services/NotificationService/Dockerfile
+    container_name: clubreporthub-notification
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_gcServer: "0"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=ClubReportHub_Notification;User Id=sa;Password=${SQL_PASSWORD:-ClubReportHub!2026};TrustServerCertificate=True;"
+      Jwt__Issuer: "ClubReportHub"
+      Jwt__Audience: "ClubReportHub.Client"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-replace-with-a-random-secret-key-at-least-32-characters}"
+      Redis__ConnectionString: "redis:6379"
+      Redis__StreamName: "${REDIS_STREAM_NAME:-clubreporthub-events}"
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+    networks:
+      - internal-net
+
+  # ============================================================================
+  # 10. ExportService
+  # ============================================================================
+  export-service:
+    build:
+      context: .
+      dockerfile: src/Services/ExportService/Dockerfile
+    container_name: clubreporthub-export
+    restart: unless-stopped
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - export_storage:/app/exports
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_gcServer: "0"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=ClubReportHub_Export;User Id=sa;Password=${SQL_PASSWORD:-ClubReportHub!2026};TrustServerCertificate=True;"
+      Jwt__Issuer: "ClubReportHub"
+      Jwt__Audience: "ClubReportHub.Client"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-replace-with-a-random-secret-key-at-least-32-characters}"
+      Redis__ConnectionString: "redis:6379"
+      Redis__StreamName: "${REDIS_STREAM_NAME:-clubreporthub-events}"
+      Services__ClubService__BaseUrl: "http://club-service:8080/"
+      Services__ReportService__BaseUrl: "http://report-service:8080/"
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+    networks:
+      - internal-net
+
+  # ============================================================================
+  # 11. API Gateway (YARP) - ONLY SERVICE EXPOSED TO INTERNET
+  # ============================================================================
+  api-gateway:
+    build:
+      context: .
+      dockerfile: src/Gateway/ApiGateway/Dockerfile
+    container_name: clubreporthub-gateway
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - club-service
+      - activity-service
+      - report-service
+      - finance-service
+      - export-service
+      - notification-service
+    ports:
+      - "${GATEWAY_PORT:-7000}:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DOTNET_gcServer: "0"
+      Jwt__Issuer: "ClubReportHub"
+      Jwt__Audience: "ClubReportHub.Client"
+      Jwt__SigningKey: "${JWT_SIGNING_KEY:-replace-with-a-random-secret-key-at-least-32-characters}"
+    deploy:
+      resources:
+        limits:
+          memory: 250M
+    networks:
+      - internal-net
+
+# ==============================================================================
+# Persistent Volumes
+# ==============================================================================
+volumes:
+  sqlserver_data:
+  redis_data:
+  report_attachments:
+  report_uploads:
+  export_storage:
+
+# ==============================================================================
+# Isolated Internal Network
+# ==============================================================================
+networks:
+  internal-net:
+    driver: bridge

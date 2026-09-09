@@ -1,0 +1,41 @@
+{
+  "ReverseProxy": {
+    "Clusters": {
+      "auth-service": {
+        "Destinations": {
+          "primary": { "Address": "http://localhost:5101/" }
+        }
+      },
+      "club-service": {
+        "Destinations": {
+          "primary": { "Address": "http://localhost:5102/" }
+        }
+      },
+      "activity-service": {
+        "Destinations": {
+          "primary": { "Address": "http://localhost:5106/" }
+        }
+      },
+      "report-service": {
+        "Destinations": {
+          "primary": { "Address": "http://localhost:5103/" }
+        }
+      },
+      "finance-service": {
+        "Destinations": {
+          "primary": { "Address": "http://localhost:5107/" }
+        }
+      },
+      "export-service": {
+        "Destinations": {
+          "primary": { "Address": "http://localhost:5104/" }
+        }
+      },
+      "notification-service": {
+        "Destinations": {
+          "primary": { "Address": "http://localhost:5105/" }
+        }
+      }
+    }
+  }
+}

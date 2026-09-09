@@ -1,0 +1,14 @@
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/.idea
+**/*.user
+**/*.suo
+**/*.log
+**/bin/
+**/obj/
+**/TestResults/
+README.md
+.env
+.env.example

@@ -1,0 +1,36 @@
+# Build results
+bin/
+obj/
+out/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# NuGet
+packages/
+*.nupkg
+
+# User secrets
+appsettings.*.local.json
+secrets.json
+
+# Test results
+TestResults/
+*.trx
+
+# Backend-specific ignores
+**/Frontend/
+**/frontend/
+node_modules/

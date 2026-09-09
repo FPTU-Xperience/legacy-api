@@ -1,0 +1,113 @@
+{
+  "ReverseProxy": {
+    "Routes": {
+      "auth": {
+        "ClusterId": "auth-service",
+        "AuthorizationPolicy": "Anonymous",
+        "Match": { "Path": "/api/auth/{**catch-all}" }
+      },
+      "users": {
+        "ClusterId": "auth-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/users/{**catch-all}" }
+      },
+      "roles": {
+        "ClusterId": "auth-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/roles/{**catch-all}" }
+      },
+      "clubs": {
+        "ClusterId": "club-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/clubs/{**catch-all}" }
+      },
+      "club-activities": {
+        "ClusterId": "activity-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/clubs/{clubId}/activities" }
+      },
+      "club-activity-management": {
+        "ClusterId": "activity-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/clubs/{clubId}/activities/{**catch-all}" }
+      },
+      "activities": {
+        "ClusterId": "activity-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/activities/{**catch-all}" }
+      },
+      "reports": {
+        "ClusterId": "report-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/reports/{**catch-all}" }
+      },
+      "deadlines": {
+        "ClusterId": "report-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/deadlines/{**catch-all}" }
+      },
+      "kpis": {
+        "ClusterId": "report-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/kpis/{**catch-all}" }
+      },
+      "finance": {
+        "ClusterId": "finance-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/finance/{**catch-all}" }
+      },
+      "exports": {
+        "ClusterId": "export-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/exports/{**catch-all}" }
+      },
+      "notifications": {
+        "ClusterId": "notification-service",
+        "AuthorizationPolicy": "Default",
+        "Match": { "Path": "/api/notifications/{**catch-all}" }
+      }
+    },
+    "Clusters": {
+      "auth-service": {
+        "Destinations": {
+          "primary": { "Address": "http://auth-service:8080/" }
+        }
+      },
+      "club-service": {
+        "Destinations": {
+          "primary": { "Address": "http://club-service:8080/" }
+        }
+      },
+      "activity-service": {
+        "Destinations": {
+          "primary": { "Address": "http://activity-service:8080/" }
+        }
+      },
+      "report-service": {
+        "Destinations": {
+          "primary": { "Address": "http://report-service:8080/" }
+        }
+      },
+      "finance-service": {
+        "Destinations": {
+          "primary": { "Address": "http://finance-service:8080/" }
+        }
+      },
+      "export-service": {
+        "Destinations": {
+          "primary": { "Address": "http://export-service:8080/" }
+        }
+      },
+      "notification-service": {
+        "Destinations": {
+          "primary": { "Address": "http://notification-service:8080/" }
+        }
+      },
+      "kpi-grpc-service": {
+        "Destinations": {
+          "primary": { "Address": "http://kpi-grpc-service:8080/" }
+        }
+      }
+    }
+  }
+}
