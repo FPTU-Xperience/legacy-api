@@ -1,0 +1,37 @@
+name: Deploy to Ubuntu VPC
+
+on:
+  workflow_dispatch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_DIR: /${{ secrets.VPC_USERNAME }}/fptux/legacy/legacy-api
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy source code via SSH
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPC_HOST }}
+          username: ${{ secrets.VPC_USERNAME }}
+          password: ${{ secrets.VPC_PASSWORD }}
+          source: "."
+          target: ${{ env.TARGET_DIR }}
+          rm: false 
+
+      - name: Execute Docker Compose via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPC_HOST }}
+          username: ${{ secrets.VPC_USERNAME }}
+          password: ${{ secrets.VPC_PASSWORD }}
+          script: |
+            cd ${{ env.TARGET_DIR }}
+            
+            docker compose down
+            docker compose up -d --build
+            
+            docker image prune -f
