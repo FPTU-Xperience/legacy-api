@@ -320,6 +320,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       DOTNET_gcServer: "0"
+      Cors__AllowedOrigins__0: "http://localhost:3000"
+      Cors__AllowedOrigins__1: "http://localhost:3001"
+      Cors__AllowedOrigins__2: "http://localhost:5173"
+      Cors__AllowedOrigins__3: "${FRONTEND_ORIGIN:-https://fptux-legacy-ui.pages.dev}"
       Jwt__Issuer: "ClubReportHub"
       Jwt__Audience: "ClubReportHub.Client"
       Jwt__SigningKey: "${JWT_SIGNING_KEY:-replace-with-a-random-secret-key-at-least-32-characters}"

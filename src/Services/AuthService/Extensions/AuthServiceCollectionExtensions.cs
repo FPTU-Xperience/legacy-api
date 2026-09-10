@@ -82,9 +82,37 @@ public static class AuthServiceCollectionExtensions
         {
             options.AddPolicy("frontend", policy =>
             {
-                var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-                    ?? ["http://localhost:3000", "http://localhost:5173"];
-                policy.WithOrigins(allowedOrigins)
+                var configuredOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+                var defaultOrigins = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "http://localhost:3000",
+                    "http://localhost:3001",
+                    "http://localhost:5173",
+                    "https://fptux-legacy-ui.pages.dev"
+                };
+
+                foreach (var origin in configuredOrigins)
+                {
+                    if (!string.IsNullOrWhiteSpace(origin))
+                    {
+                        defaultOrigins.Add(origin.Trim().TrimEnd('/'));
+                    }
+                }
+
+                policy.SetIsOriginAllowed(origin =>
+                      {
+                          if (string.IsNullOrWhiteSpace(origin)) return false;
+                          if (defaultOrigins.Contains(origin.TrimEnd('/'))) return true;
+
+                          if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                          {
+                              return uri.Host == "localhost"
+                                  || uri.Host == "127.0.0.1"
+                                  || uri.Host.EndsWith(".pages.dev", StringComparison.OrdinalIgnoreCase);
+                          }
+
+                          return false;
+                      })
                       .AllowAnyHeader()
                       .AllowAnyMethod()
                       .AllowCredentials();

@@ -241,6 +241,28 @@ docker compose exec redis redis-cli ping
 
 ## Docker Services
 
+### Connect the deployed frontend
+
+The frontend at `https://fptux-legacy-ui.pages.dev` must use
+`https://clubreporthub.duckdns.org` as its API base URL. Routes already include
+`/api`, for example `POST /api/auth/login`. An HTTPS frontend cannot call an HTTP
+API such as `http://42.96.16.172:7000`.
+
+Set `FRONTEND_ORIGIN=https://fptux-legacy-ui.pages.dev` in the backend `.env`.
+The value must contain the scheme and hostname only, without `/login` or a
+trailing slash. Compose passes it to the Gateway CORS policy, alongside the
+existing local development origins. After changing it, apply the Gateway
+configuration with:
+
+```bash
+docker compose up -d --no-deps --no-build api-gateway
+```
+
+Rebuild and redeploy the frontend after changing its API URL; Vite embeds
+environment values into the generated JavaScript during the build.
+
+### Inspect services
+
 ```bash
 # View logs
 docker compose logs -f report-service notification-service
